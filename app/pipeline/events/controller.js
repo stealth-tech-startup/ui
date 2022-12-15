@@ -36,10 +36,12 @@ export default Controller.extend(ModelReloaderMixin, {
   },
   queryParams: [
     {
-      jobId: { type: 'string' }
+      jobId: { type: 'string' },
+      showStages: { type: 'boolean' }
     }
   ],
   jobId: '',
+  showStages: false,
   session: service(),
   init() {
     this._super(...arguments);

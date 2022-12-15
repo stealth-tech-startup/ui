@@ -102,5 +102,6 @@ export default Model.extend({
       this.builds.any(b => isActiveBuild(b.get('status'), b.get('endTime')))
       ? SHOULD_RELOAD_YES
       : SHOULD_RELOAD_NO;
-  }
+  },
+  stage: DS.belongsTo('stage')
 });

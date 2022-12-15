@@ -416,5 +416,13 @@ export default Service.extend({
     const data = { badges };
 
     return this.fetchFromApi(method, url, data);
+  },
+
+  // GET /pipelines/{id}/stages?eventId={eventId}
+  async fetchStages(pipelineId, eventId) {
+    const method = 'get';
+    const url = `/pipelines/${pipelineId}/stages?eventId=${eventId}`;
+
+    return this.fetchFromApi(method, url);
   }
 });
