@@ -8,6 +8,7 @@ import {
   subgraphFilter,
   removeBranch
 } from 'screwdriver-ui/utils/graph-tools';
+import groupBy from 'lodash.groupby';
 
 export default Component.extend({
   shuttle: service(),
@@ -18,6 +19,13 @@ export default Component.extend({
   displayJobNames: true,
   showPRJobs: true,
   graph: { nodes: [], edges: [] },
+  showStages: computed('minified', 'stages', {
+    get() {
+      const stages = this.stages === undefined ? [] : this.stages;
+
+      return !(this.minified || stages.length === 0);
+    }
+  }),
   decoratedGraph: computed(
     'builds.@each.{id,status}',
     'completeWorkflowGraph',
@@ -29,6 +37,7 @@ export default Component.extend({
     'showPRJobs',
     'startFrom',
     'workflowGraph',
+    'stages',
     {
       get() {
         const showDownstreamTriggers =
@@ -39,6 +48,7 @@ export default Component.extend({
 
         const { startFrom } = this;
 
+        const stages = this.stages === undefined ? [] : this.stages;
         const prJobs = this.prJobs === undefined ? [] : this.prJobs;
         const jobs = (this.jobs === undefined ? [] : this.jobs).concat(prJobs);
 
@@ -106,7 +116,8 @@ export default Component.extend({
           inputGraph: this.minified ? subgraphFilter(graph, startFrom) : graph,
           builds,
           jobs,
-          start: startFrom
+          start: startFrom,
+          stages
         });
       }
     }
@@ -211,6 +222,29 @@ export default Component.extend({
 
     const { ICON_SIZE, TITLE_SIZE, ARROWHEAD } = this.elementSizes;
 
+    // Need this if stage is in first row
+    const Y_DISPLACEMENT = this.showStages ? ICON_SIZE : 0;
+    // padding for stage title and description
+    const STAGE_Y_DISPLACEMENT = this.showStages ? 2 * ICON_SIZE : 0;
+
+    const stagesGroupedByRowPosition = groupBy(data.stages, 'pos.y');
+
+    const verticalDisplacementByRowPosition = {};
+
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < data.meta.height; i++) {
+      const stages = stagesGroupedByRowPosition[i];
+
+      if (stages === undefined) {
+        verticalDisplacementByRowPosition[i] =
+          i === 0 ? 0 : verticalDisplacementByRowPosition[i - 1];
+      } else {
+        verticalDisplacementByRowPosition[i] =
+          STAGE_Y_DISPLACEMENT +
+          (i === 0 ? Y_DISPLACEMENT : verticalDisplacementByRowPosition[i - 1]);
+      }
+    }
+
     let X_WIDTH = ICON_SIZE * 2;
 
     // When displaying job names use estimate of 7 per character
@@ -225,7 +259,9 @@ export default Component.extend({
     const w = this.width || data.meta.width * X_WIDTH;
     const h =
       this.height ||
-      data.meta.height * ICON_SIZE + data.meta.height * Y_SPACING;
+      data.meta.height * ICON_SIZE +
+        data.meta.height * Y_SPACING +
+        Y_DISPLACEMENT;
 
     // Add the SVG element
     const svg = d3
@@ -247,9 +283,91 @@ export default Component.extend({
 
     // Calculate the start/end point of a line
     const calcPos = (pos, spacer) =>
-      (pos + 1) * ICON_SIZE + (pos * spacer - ICON_SIZE / 2);
+      (pos + 1) * ICON_SIZE +
+      (pos * spacer - ICON_SIZE / 2) +
+      verticalDisplacementByRowPosition[pos];
 
     const isSkipped = this.isSkipped === undefined ? false : this.isSkipped;
+
+    if (this.showStages) {
+      const calcYForStageElement = pos => {
+        let y =
+          verticalDisplacementByRowPosition[pos] +
+          (2 * ICON_SIZE) / 3 +
+          -Y_DISPLACEMENT;
+
+        if (pos === 0) {
+          y -= STAGE_Y_DISPLACEMENT;
+        }
+
+        return y;
+      };
+
+      // stages
+      svg
+        .selectAll('stages')
+        .data(data.stages)
+        .enter()
+        .append('rect')
+        .attr('class', 'stage-container')
+        .attr('x', d => {
+          return d.pos.x * X_WIDTH + ICON_SIZE / 9;
+        })
+        .attr('y', d => {
+          return calcYForStageElement(d.pos.y);
+        })
+        .attr('width', d => {
+          return X_WIDTH * d.graph.meta.width - ICON_SIZE / 9;
+        })
+        .attr(
+          'height',
+          ICON_SIZE + Y_SPACING - ICON_SIZE / 9 + STAGE_Y_DISPLACEMENT
+        )
+        .attr('stroke', 'grey')
+        .attr('fill', '#ffffff');
+
+      // stage names
+      svg
+        .selectAll('stages')
+        .data(data.stages)
+        .enter()
+        .append('text')
+        .attr('class', 'stage-name')
+        .text(d => {
+          return d.name;
+        })
+        .attr('font-size', `${TITLE_SIZE}px`)
+        .style('text-anchor', 'left')
+        .style('inline-size', X_WIDTH * 3 - ICON_SIZE / 9)
+        .style('writing-mode', 'horizontal-tb')
+        .attr('x', d => {
+          return d.pos.x * X_WIDTH + 10;
+        })
+        .attr('y', d => {
+          return calcYForStageElement(d.pos.y) + 20;
+        });
+
+      // stage description
+      svg
+        .selectAll('stages')
+        .data(data.stages)
+        .enter()
+        .append('foreignObject')
+        .attr('width', X_WIDTH * 3 - ICON_SIZE / 2)
+        .attr('height', 50)
+        .attr('x', d => {
+          return d.pos.x * X_WIDTH + 10;
+        })
+        .attr('y', d => {
+          return calcYForStageElement(d.pos.y) + 30;
+        })
+        .append('xhtml:div')
+        .html(d => {
+          return d.description;
+        })
+        .attr('class', 'stage-description')
+        .style('font-size', `${TITLE_SIZE}px`);
+    }
 
     // edges
     svg
@@ -313,7 +431,13 @@ export default Component.extend({
       .attr('font-size', `${ICON_SIZE}px`)
       .style('text-anchor', 'middle')
       .attr('x', d => calcXCenter(d.pos.x))
-      .attr('y', d => (d.pos.y + 1) * ICON_SIZE + d.pos.y * Y_SPACING)
+      .attr(
+        'y',
+        d =>
+          (d.pos.y + 1) * ICON_SIZE +
+          d.pos.y * Y_SPACING +
+          verticalDisplacementByRowPosition[d.pos.y]
+      )
       .on('click', e => {
         this.send('buildClicked', e);
       })
@@ -361,7 +485,11 @@ export default Component.extend({
         .attr('x', d => calcXCenter(d.pos.x))
         .attr(
           'y',
-          d => (d.pos.y + 1) * ICON_SIZE + d.pos.y * Y_SPACING + TITLE_SIZE
+          d =>
+            (d.pos.y + 1) * ICON_SIZE +
+            d.pos.y * Y_SPACING +
+            TITLE_SIZE +
+            verticalDisplacementByRowPosition[d.pos.y]
         )
         .insert('title')
         .text(d => d.name);
