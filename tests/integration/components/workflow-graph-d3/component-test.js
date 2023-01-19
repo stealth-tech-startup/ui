@@ -313,22 +313,34 @@ module('Integration | Component | workflow graph d3', function (hooks) {
       2
     );
 
-    assert.equal(this.element.querySelectorAll('svg > .stage-name').length, 2);
-    assert
-      .dom('svg text.stage-name:nth-of-type(1)')
-      .includesText('integration');
-    assert.dom('svg text.stage-name:nth-of-type(2)').includesText('production');
-
     assert.equal(
-      this.element.querySelectorAll('svg > foreignObject .stage-description')
-        .length,
+      this.element.querySelectorAll(
+        'svg > .stage-info-wrapper .stage-info .stage-name'
+      ).length,
       2
     );
     assert
-      .dom('svg > foreignObject:nth-of-type(1) .stage-description')
+      .dom('svg > .stage-info-wrapper:nth-of-type(1) .stage-info .stage-name')
+      .hasText('integration');
+    assert
+      .dom('svg > .stage-info-wrapper:nth-of-type(2) .stage-info .stage-name')
+      .hasText('production');
+
+    assert.equal(
+      this.element.querySelectorAll(
+        'svg > .stage-info-wrapper .stage-info .stage-description'
+      ).length,
+      2
+    );
+    assert
+      .dom(
+        'svg > .stage-info-wrapper:nth-of-type(1) .stage-info .stage-description'
+      )
       .hasText(STAGE_INT_DESC);
     assert
-      .dom('svg > foreignObject:nth-of-type(2) .stage-description')
+      .dom(
+        'svg > .stage-info-wrapper:nth-of-type(2) .stage-info .stage-description'
+      )
       .hasText(STAGE_PROD_DESC);
   });
 
@@ -398,11 +410,17 @@ module('Integration | Component | workflow graph d3', function (hooks) {
       0
     );
 
-    assert.equal(this.element.querySelectorAll('svg > .stage-name').length, 0);
+    assert.equal(
+      this.element.querySelectorAll(
+        'svg > .stage-info-wrapper .stage-info .stage-name'
+      ).length,
+      0
+    );
 
     assert.equal(
-      this.element.querySelectorAll('svg > foreignObject .stage-description')
-        .length,
+      this.element.querySelectorAll(
+        'svg > .stage-info-wrapper .stage-info .stage-description'
+      ).length,
       0
     );
   });
