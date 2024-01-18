@@ -321,7 +321,7 @@ export default Service.extend({
     const url = `/users/settings`;
     const userSettings = await this.getUserSetting();
 
-    const data = {
+    let data = {
       settings: {
         ...userSettings,
         [pipelineId]: pipelineSettings
@@ -418,10 +418,10 @@ export default Service.extend({
     return this.fetchFromApi(method, url, data);
   },
 
-  // GET /pipelines/{id}/stages?eventId={eventId}
-  async fetchStages(pipelineId, eventId) {
+  // GET /pipelines/{id}/stages
+  async fetchStages(pipelineId) {
     const method = 'get';
-    const url = `/pipelines/${pipelineId}/stages?eventId=${eventId}`;
+    const url = `/pipelines/${pipelineId}/stages`;
 
     return this.fetchFromApi(method, url);
   }

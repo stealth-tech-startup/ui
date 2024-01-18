@@ -1,4 +1,4 @@
-import Model, { attr, hasMany } from '@ember-data/model';
+import Model, { attr, hasMany, belongsTo } from '@ember-data/model';
 import { computed, get } from '@ember/object';
 import { alias, match } from '@ember/object/computed';
 import ENV from 'screwdriver-ui/config/environment';
@@ -103,5 +103,5 @@ export default Model.extend({
       ? SHOULD_RELOAD_YES
       : SHOULD_RELOAD_NO;
   },
-  stage: DS.belongsTo('stage')
+  stage: belongsTo('stage')
 });

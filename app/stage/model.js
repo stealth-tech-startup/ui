@@ -1,9 +1,8 @@
-import DS from 'ember-data';
+import Model, { attr, hasMany } from '@ember-data/model';
 
-export default DS.Model.extend({
-  name: DS.attr('string'),
-  pipelineId: DS.attr('number'),
-  description: DS.attr('string'),
-  groupEventId: DS.attr('string'),
-  jobs: DS.hasMany('job')
+export default Model.extend({
+  name: attr('string'),
+  pipelineId: attr('number'),
+  description: attr('string'),
+  jobs: hasMany('job')
 });

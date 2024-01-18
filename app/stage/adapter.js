@@ -22,16 +22,16 @@ export default BaseAdapter.extend({
   },
 
   async queryRecord(store, type, query) {
-    const { pipelineId, eventId } = query;
+    const { pipelineId } = query;
 
-    const data = await this.shuttle.fetchStages(pipelineId, eventId);
+    const data = await this.shuttle.fetchStages(pipelineId);
 
     return data;
   },
 
   query(store, type, query) {
-    const { pipelineId, eventId } = query;
+    const { pipelineId } = query;
 
-    return this.shuttle.fetchStages(pipelineId, eventId);
+    return this.shuttle.fetchStages(pipelineId);
   }
 });

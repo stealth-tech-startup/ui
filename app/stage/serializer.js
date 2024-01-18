@@ -2,7 +2,7 @@ import DS from 'ember-data';
 
 /**
  * extractPayload
- * Make the raw payload into Ember Data expected format for RestAdapater
+ * Make the raw payload into Ember Data expected format for RestAdapter
  * @param  {JSON} payload [raw json data]
  * @return {JSON}         [data]
  */
