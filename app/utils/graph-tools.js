@@ -21,6 +21,8 @@ const STATUS_MAP = {
 };
 const edgeSrcBranchRegExp = new RegExp('^~(pr|commit):/(.+)/$');
 const triggerBranchRegExp = new RegExp('^~(pr|commit):(.+)$');
+const STAGE_SETUP_PATTERN = /^stage@([\w-]+)(?::setup)$/;
+const STAGE_TEARDOWN_PATTERN = /^stage@([\w-]+)(?::teardown)$/;
 
 /**
  * Find a node from the list of nodes
@@ -60,7 +62,93 @@ const icon = status =>
   STATUS_MAP[status] ? STATUS_MAP[status].icon : STATUS_MAP.UNKNOWN.icon;
 
 /**
- * extract graph only part of given stage
+ * Compiles and returns a list of stages and associated jobs by traversing the event workflow graph
+ * @method  extractEventStages
+ * @param  {Object} graph                            Event workflow graph
+ * @param  {Array|DS.PromiseArray} pipelineStages   List of latest stage metadata associated with the pipeline
+ * @return {Array}                                  List of stage metadata associated with the event
+ */
+const extractEventStages = (graph, pipelineStages) => {
+  const stageToPipelineStageMap = pipelineStages
+    ? pipelineStages.reduce(
+        (obj, stage) => ({
+          ...obj,
+          [stage.name]: stage
+        }),
+        {}
+      )
+    : {};
+  const stageNameToEventStageMap = {};
+  const { nodes } = graph;
+
+  nodes.forEach(n => {
+    const { stageName } = n;
+
+    if (stageName) {
+      let eventStage = stageNameToEventStageMap[stageName];
+
+      if (eventStage === undefined) {
+        const pipelineStage = stageToPipelineStageMap[stageName] || {};
+
+        eventStage = {
+          name: stageName,
+          jobs: [],
+          id: pipelineStage.id,
+          description: pipelineStage.description
+        };
+
+        stageNameToEventStageMap[stageName] = eventStage;
+      }
+      eventStage.jobs.push({ id: n.id });
+    }
+  });
+
+  return Object.values(stageNameToEventStageMap);
+};
+
+/**
+ * Replaces the edges associated with the specified node by creating new edges from the upstream nodes of the specified node
+ * to the downstream nodes of the specified node.
+ * @method  bypassSetupTeardownEdges
+ * @param  {Array} edges       List of edges in the workflow graph
+ * @param  {String} nodeName   Name of the node (job) in the workflow graph. Ex: 'stage@prod:setup', 'stage@canary:teardown'
+ * @return {Array}             List of edges after replacing the edges associated with specified node
+ */
+const bypassSetupTeardownEdges = (edges, nodeName) => {
+  const resultEdges = [];
+
+  const asSrcEdges = [];
+  const asDestEdges = [];
+
+  edges.forEach(e => {
+    if (e.src === nodeName) {
+      asSrcEdges.push(e);
+    } else if (e.dest === nodeName) {
+      asDestEdges.push(e);
+    } else {
+      resultEdges.push(e);
+    }
+  });
+
+  if (asSrcEdges.length > 0 && asDestEdges.length > 0) {
+    asSrcEdges.forEach(asSrcEdge => {
+      const newDest = asSrcEdge.dest;
+
+      asDestEdges.forEach(asDestEdge => {
+        resultEdges.push({ ...asDestEdge, dest: newDest });
+      });
+    });
+  }
+
+  return resultEdges;
+};
+
+/**
+ * Extracts the workflow graph associated with the specified stage.
+ * @method  extractStageGraph
+ * @param  {Object} graph   Event workflow graph
+ * @param  {Object} stage   Stage metadata
+ * @return {Array}          Workflow graph associated with the specified stage
  */
 const extractStageGraph = (graph, stage) => {
   const { nodes, edges } = graph;
@@ -249,20 +337,22 @@ const hasProcessedDest = (graph, name) => {
 };
 
 /**
- * Clones and decorates an input graph datastructure into something that can be used to display
+ * Clones and decorates an input graph data structure into something that can be used to display
  * a custom directed graph
  * @method decorateGraph
  * @param  {Object}      inputGraph A directed graph representation { nodes: [], edges: [] }
  * @param  {Array|DS.PromiseArray|DS.PromiseManyArray}  [builds]     A list of build metadata
  * @param  {Array|DS.PromiseArray|DS.PromiseManyArray}  [jobs]       A list of job metadata
  * @param  {String}      [start]    Node name that indicates what started the graph
- * @param  {Array|DS.PromiseArray}  [stages]     A list of stag metadata
+ * @param  {Array|DS.PromiseArray}  [stages]     A list of stage metadata
  * @return {Object}                 A graph representation with row/column coordinates for drawing, and meta information for scaling
  */
 const decorateGraph = ({ inputGraph, builds, jobs, start, stages }) => {
   // deep clone
-  const graph = JSON.parse(JSON.stringify(inputGraph));
-  const { nodes } = graph;
+  const originalGraph = JSON.parse(JSON.stringify(inputGraph));
+  const originalNodes = originalGraph.nodes;
+  const originalEdges = originalGraph.edges;
+
   const buildsAvailable =
     (Array.isArray(builds) ||
       builds instanceof DS.PromiseArray ||
@@ -273,9 +363,41 @@ const decorateGraph = ({ inputGraph, builds, jobs, start, stages }) => {
       jobs instanceof DS.PromiseArray ||
       jobs instanceof DS.PromiseManyArray) &&
     jobs.length;
-  const { edges } = graph;
+  const graph = {};
 
   let y = [0]; // accumulator for column heights
+
+  const setupNodes = [];
+  const teardownNodes = [];
+  const nodes = [];
+
+  // Remove setup and teardown nodes
+  originalNodes.forEach(n => {
+    const jobName = n.name;
+
+    if (STAGE_SETUP_PATTERN.test(jobName)) {
+      setupNodes.push(n);
+    } else if (STAGE_TEARDOWN_PATTERN.test(jobName)) {
+      teardownNodes.push(n);
+    } else {
+      nodes.push(n);
+    }
+  });
+
+  graph.nodes = nodes;
+
+  let edges = originalEdges;
+
+  // Bypass setup/teardown edges
+  setupNodes.forEach(setupNode => {
+    edges = bypassSetupTeardownEdges(edges, setupNode.name);
+  });
+
+  teardownNodes.forEach(teardownNode => {
+    edges = bypassSetupTeardownEdges(edges, teardownNode.name);
+  });
+
+  graph.edges = edges;
 
   nodes.forEach(n => {
     // Set root nodes on left
@@ -381,7 +503,9 @@ const decorateGraph = ({ inputGraph, builds, jobs, start, stages }) => {
   };
 
   if (stages) {
-    graph.stages = stages.map(s => {
+    const eventStages = extractEventStages(graph, stages);
+
+    graph.stages = eventStages.map(s => {
       const stageGraph = extractStageGraph(graph, s);
 
       s.graph = stageGraph;

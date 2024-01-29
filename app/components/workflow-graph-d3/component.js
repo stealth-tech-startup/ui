@@ -307,8 +307,8 @@ export default Component.extend({
         );
       };
 
-      const stageIdToYDisplacmentMap = {};
-      const stageIdToStageElementsMap = {};
+      const stageNameToYDisplacementMap = {};
+      const stageNameToStageElementsMap = {};
 
       data.stages.forEach(stage => {
         // stage container
@@ -352,8 +352,8 @@ export default Component.extend({
 
         const foHeight = stageInfo.node().getBoundingClientRect().height;
 
-        stageIdToYDisplacmentMap[stage.id] = foHeight;
-        stageIdToStageElementsMap[stage.id] = {
+        stageNameToYDisplacementMap[stage.name] = foHeight;
+        stageNameToStageElementsMap[stage.name] = {
           stageContainer,
           stageInfoWrapper: fo
         };
@@ -368,7 +368,7 @@ export default Component.extend({
             i === 0 ? 0 : verticalDisplacementByRowPosition[i - 1];
         } else {
           const maxDisplacement = Math.max(
-            ...stages.map(s => stageIdToYDisplacmentMap[s.id])
+            ...stages.map(s => stageNameToYDisplacementMap[s.name])
           );
 
           verticalDisplacementByRowPosition[i] =
@@ -381,9 +381,9 @@ export default Component.extend({
 
       // Adjust height and position of SVG and stage elements
       data.stages.forEach(stage => {
-        const yDisplacement = stageIdToYDisplacmentMap[stage.id];
+        const yDisplacement = stageNameToYDisplacementMap[stage.name];
         const { stageContainer, stageInfoWrapper } =
-          stageIdToStageElementsMap[stage.id];
+          stageNameToStageElementsMap[stage.name];
 
         stageInfoWrapper.attr('height', yDisplacement);
         stageInfoWrapper.attr('y', calcStageY(stage, yDisplacement));
@@ -507,9 +507,11 @@ export default Component.extend({
           const text = d3.select(this);
           const textWidth = text.node().getBBox().width;
           const maxWidth = X_WIDTH - EDGE_GAP / 2;
+
           if (textWidth > maxWidth) {
-            const fontSize = TITLE_SIZE * maxWidth / textWidth; // calculate the new font-size based on the maximum width
-            text.style("font-size", fontSize + "px");
+            const fontSize = (TITLE_SIZE * maxWidth) / textWidth; // calculate the new font-size based on the maximum width
+
+            text.style('font-size', `${fontSize}px`);
           }
         })
         .style('text-anchor', 'middle')
