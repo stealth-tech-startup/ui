@@ -259,12 +259,12 @@ module('Integration | Component | workflow graph d3', function (hooks) {
         { name: '~commit' },
         { name: 'component', id: 1 },
         { name: 'publish', id: 2 },
-        { name: 'ci-deploy', id: 21 },
-        { name: 'ci-test', id: 22 },
-        { name: 'ci-certify', id: 23 },
-        { name: 'prod-deploy', id: 31 },
-        { name: 'prod-test', id: 32 },
-        { name: 'prod-certify', id: 33 }
+        { name: 'ci-deploy', id: 21, stageName: 'integration' },
+        { name: 'ci-test', id: 22, stageName: 'integration' },
+        { name: 'ci-certify', id: 23, stageName: 'integration' },
+        { name: 'prod-deploy', id: 31, stageName: 'production' },
+        { name: 'prod-test', id: 32, stageName: 'production' },
+        { name: 'prod-certify', id: 33, stageName: 'production' }
       ],
       edges: [
         { src: '~pr', dest: 'component' },
@@ -295,7 +295,7 @@ module('Integration | Component | workflow graph d3', function (hooks) {
     ]);
 
     await render(
-      hbs`{{workflow-graph-d3 workflowGraph=workflowGraph stages=stages}}`
+      hbs`<WorkflowGraphD3 @workflowGraph={{this.workflowGraph}} @stages={{this.stages}}/>`
     );
 
     assert.equal(this.element.querySelectorAll('svg').length, 1);
@@ -356,12 +356,12 @@ module('Integration | Component | workflow graph d3', function (hooks) {
         { name: '~commit' },
         { name: 'component', id: 1 },
         { name: 'publish', id: 2 },
-        { name: 'ci-deploy', id: 21 },
-        { name: 'ci-test', id: 22 },
-        { name: 'ci-certify', id: 23 },
-        { name: 'prod-deploy', id: 31 },
-        { name: 'prod-test', id: 32 },
-        { name: 'prod-certify', id: 33 }
+        { name: 'ci-deploy', id: 21, stageName: 'integration' },
+        { name: 'ci-test', id: 22, stageName: 'integration' },
+        { name: 'ci-certify', id: 23, stageName: 'integration' },
+        { name: 'prod-deploy', id: 31, stageName: 'production' },
+        { name: 'prod-test', id: 32, stageName: 'production' },
+        { name: 'prod-certify', id: 33, stageName: 'production' }
       ],
       edges: [
         { src: '~pr', dest: 'component' },
@@ -392,7 +392,7 @@ module('Integration | Component | workflow graph d3', function (hooks) {
     ]);
 
     await render(
-      hbs`{{workflow-graph-d3 workflowGraph=workflowGraph stages=stages minified=true}}`
+      hbs`<WorkflowGraphD3 @workflowGraph={{this.workflowGraph}} @stages={{this.stages}} @minified={{true}}/>`
     );
 
     assert.equal(this.element.querySelectorAll('svg').length, 1);
